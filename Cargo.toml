@@ -3,6 +3,24 @@ resolver = "2"
 members = ["ldk-server-cli", "ldk-server-client", "ldk-server-grpc", "ldk-server", "ldk-server-mcp"]
 exclude = ["e2e-tests"]
 
+
+[patch."https://github.com/lightningdevkit/ldk-node"]
+ldk-node = { git = "https://github.com/joostjager/ldk-node", rev = "80199e3319568be42b05f850b8f1d824e8b1b5a2" }
+
+[patch."https://github.com/lightningdevkit/rust-lightning"]
+lightning = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-types = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-invoice = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-net-tokio = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-persister = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-background-processor = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-rapid-gossip-sync = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-block-sync = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-transaction-sync = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-liquidity = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-macros = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+lightning-dns-resolver = { git = "ssh://git@gitea-ssh.bitcoin.ninja/joostjager/rust-lightning.git", rev = "e8e5aae2cc22cdbf30eeda363c71dfb1011b471d" }
+
 [profile.release]
 panic = "abort"
 opt-level = 3
