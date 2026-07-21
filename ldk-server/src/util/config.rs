@@ -52,6 +52,7 @@ pub struct Config {
 	pub tls_config: Option<TlsConfig>,
 	pub grpc_service_addr: SocketAddr,
 	pub storage_dir_path: Option<String>,
+	pub postgres_config: Option<PostgresConfig>,
 	pub chain_source: ChainSource,
 	pub rgs_server_url: Option<String>,
 	pub lsps2_client_config: Option<LSPSClientConfig>,
@@ -85,6 +86,15 @@ pub struct TlsConfig {
 	pub cert_path: Option<String>,
 	pub key_path: Option<String>,
 	pub hosts: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostgresConfig {
+	pub connection_string: String,
+	pub database_name: Option<String>,
+	pub kv_table_name: Option<String>,
+	pub certificate_path: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -121,6 +131,7 @@ struct ConfigBuilder {
 	tls_config: Option<TlsConfig>,
 	grpc_service_address: Option<String>,
 	storage_dir_path: Option<String>,
+	postgres_config: Option<PostgresConfig>,
 	electrum_url: Option<String>,
 	esplora_url: Option<String>,
 	bitcoind_rpc_address: Option<String>,
@@ -167,6 +178,7 @@ impl ConfigBuilder {
 		if let Some(storage) = toml.storage {
 			self.storage_dir_path =
 				storage.disk.and_then(|d| d.dir_path).or(self.storage_dir_path.clone());
+			self.postgres_config = storage.postgres.or(self.postgres_config.clone());
 		}
 
 		if let Some(bitcoind) = toml.bitcoind {
@@ -533,6 +545,7 @@ impl ConfigBuilder {
 			tls_config: self.tls_config,
 			grpc_service_addr,
 			storage_dir_path: self.storage_dir_path,
+			postgres_config: self.postgres_config,
 			chain_source,
 			rgs_server_url: self.rgs_server_url,
 			lsps2_client_config,
@@ -589,6 +602,7 @@ struct NodeConfig {
 #[serde(deny_unknown_fields)]
 struct StorageConfig {
 	disk: Option<DiskConfig>,
+	postgres: Option<PostgresConfig>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -1240,6 +1254,7 @@ mod tests {
 			network: Network::Regtest,
 			grpc_service_addr: SocketAddr::from_str("127.0.0.1:3002").unwrap(),
 			storage_dir_path: Some("/tmp".to_string()),
+			postgres_config: None,
 			tls_config: Some(TlsConfig {
 				cert_path: Some("/path/to/tls.crt".to_string()),
 				key_path: Some("/path/to/tls.key".to_string()),
@@ -1636,6 +1651,31 @@ mod tests {
 		assert!(config.lsps2_service_config.is_none());
 	}
 
+	#[test]
+	fn test_postgres_storage_config_from_file() {
+		let storage_path = std::env::temp_dir();
+		let config_file_name = "test_postgres_storage_config_from_file.toml";
+		let config_contents = format!(
+			"{DEFAULT_CONFIG}\n[storage.postgres]\nconnection_string = \"host=postgres user=ldk\"\ndatabase_name = \"nodes\"\nkv_table_name = \"alice\"\ncertificate_path = \"/path/to/postgres-ca.pem\"\n"
+		);
+		fs::write(storage_path.join(config_file_name), config_contents).unwrap();
+
+		let mut args_config = empty_args_config();
+		args_config.config_file =
+			Some(storage_path.join(config_file_name).to_string_lossy().to_string());
+		let config = load_config(&args_config).unwrap();
+
+		assert_eq!(
+			config.postgres_config,
+			Some(PostgresConfig {
+				connection_string: "host=postgres user=ldk".to_string(),
+				database_name: Some("nodes".to_string()),
+				kv_table_name: Some("alice".to_string()),
+				certificate_path: Some("/path/to/postgres-ca.pem".to_string()),
+			})
+		);
+	}
+
 	fn remove_config_line(config: &str, key: &str) -> String {
 		config
 			.lines()
@@ -1668,6 +1708,7 @@ mod tests {
 			.unwrap(),
 			alias: Some(parse_alias(args_config.node_alias.as_deref().unwrap()).unwrap()),
 			storage_dir_path: Some(args_config.storage_dir_path.unwrap()),
+			postgres_config: None,
 			tls_config: None,
 			chain_source: ChainSource::Rpc {
 				rpc_host: host,
@@ -1764,6 +1805,7 @@ mod tests {
 			.unwrap(),
 			alias: Some(parse_alias(args_config.node_alias.as_deref().unwrap()).unwrap()),
 			storage_dir_path: Some(args_config.storage_dir_path.unwrap()),
+			postgres_config: None,
 			tls_config: Some(TlsConfig {
 				cert_path: Some("/path/to/tls.crt".to_string()),
 				key_path: Some("/path/to/tls.key".to_string()),

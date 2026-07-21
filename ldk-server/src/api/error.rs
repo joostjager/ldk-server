@@ -125,6 +125,7 @@ impl From<NodeError> for LdkServerError {
 			| NodeError::OnchainTxCreationFailed
 			| NodeError::OnchainTxSigningFailed
 			| NodeError::TxSyncFailed
+			| NodeError::ChainSourceNotSupported
 			| NodeError::InvalidScriptPubKey
 			| NodeError::LnurlAuthFailed
 			| NodeError::LnurlAuthTimeout

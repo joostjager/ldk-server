@@ -253,7 +253,25 @@ fn main() {
 		},
 	};
 
-	let node = match builder.build(node_entropy) {
+	let node_result = match config_file.postgres_config {
+		Some(postgres_config) => {
+			let certificate_pem = postgres_config.certificate_path.map(|path| {
+				fs::read_to_string(&path).unwrap_or_else(|e| {
+					error!("Failed to read PostgreSQL CA certificate from {path}: {e}");
+					std::process::exit(-1);
+				})
+			});
+			builder.build_with_postgres_store(
+				node_entropy,
+				postgres_config.connection_string,
+				postgres_config.database_name,
+				postgres_config.kv_table_name,
+				certificate_pem,
+			)
+		},
+		None => builder.build(node_entropy),
+	};
+	let node = match node_result {
 		Ok(node) => Arc::new(node),
 		Err(e) => {
 			error!("Failed to build LDK Node: {e}");
@@ -292,8 +310,17 @@ fn main() {
 			info!("NODE_URI: {}@{}", node.node_id(), address);
 		}
 	}
+	let lease_loss = node.wait_for_lease_loss();
 
 	runtime.block_on(async {
+		let lease_loss = async move {
+			match lease_loss {
+				Some(lease_loss) => lease_loss.await,
+				None => std::future::pending::<()>().await,
+			}
+		};
+		tokio::pin!(lease_loss);
+
 		// Register SIGHUP handler for log rotation
 		let mut sighup_stream = match tokio::signal::unix::signal(SignalKind::hangup()) {
 			Ok(stream) => stream,
@@ -369,6 +396,12 @@ fn main() {
 
 		loop {
 			select! {
+				biased;
+				_ = &mut lease_loss => {
+					error!("LDK Node PostgreSQL lease lost, terminating process");
+					systemd::notify_stopping();
+					std::process::exit(1);
+				},
 					event = event_node.next_event_async() => {
 						match event {
 							Event::ChannelPending {
@@ -444,7 +477,8 @@ fn main() {
 							} => {
 								info!(
 									"CHANNEL_CLOSED: {} from counterparty {:?}",
-									channel_id, counterparty_node_id.map(|p| p.to_string()),
+									channel_id,
+									counterparty_node_id.to_string(),
 								);
 
 								let channel_id_hex = channel_id.0.to_lower_hex_string();
@@ -456,8 +490,7 @@ fn main() {
 									event_envelope::Event::ChannelStateChanged(events::ChannelStateChanged {
 										channel_id: channel_id_hex,
 										user_channel_id: user_channel_id.0.to_string(),
-										counterparty_node_id: counterparty_node_id
-											.map(|node_id| node_id.to_string()),
+										counterparty_node_id: Some(counterparty_node_id.to_string()),
 										state: if is_open_failure {
 											events::ChannelState::OpenFailed.into()
 										} else {

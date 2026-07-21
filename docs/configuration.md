@@ -64,6 +64,20 @@ Leave the field unset to disable async payments.
 Where persistent data is stored. Defaults to `~/.ldk-server/` on Linux and
 `~/Library/Application Support/ldk-server/` on macOS.
 
+### `[storage.postgres]`
+
+When configured, ldk-node state is stored in PostgreSQL and protected by a lease for the selected KV table. Set `connection_string`; optionally set `database_name`, `kv_table_name`, and `certificate_path` to a PEM-encoded CA certificate. The lease table is created in the same schema by appending `_node_lease` to the KV table name. Multiple node identities may share a database when each uses a distinct `kv_table_name`. The disk directory is still used for the node entropy, API key, TLS material, logs, and ldk-server's auxiliary data.
+
+```toml
+[storage.postgres]
+connection_string = "host=localhost user=postgres password=postgres"
+database_name = "ldk_node"
+# kv_table_name = "ldk_data"
+# certificate_path = "/path/to/postgres-ca.pem"
+```
+
+If another process owns the lease, startup fails so the process supervisor can retry. If a running server loses the lease, it exits with a nonzero status without normal node shutdown. Configure the supervisor to restart it.
+
 ### `[log]`
 
 Controls logging behavior. By default, `log_to_file` is `true` and logs are also written 
